@@ -27,7 +27,7 @@ export default function DashboardPage() {
         <div className="flex flex-col space-y-2">
           <h1 className="text-3xl font-bold tracking-tight">Dashboard Overview</h1>
           <p className="text-muted-foreground">
-            Welcome to ADmyBRAND Insights - Your complete analytics solution
+            Welcome to TechoBrand Insights - Your complete analytics solution
           </p>
         </div>
         
