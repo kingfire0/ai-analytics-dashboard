@@ -1,12 +1,13 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Select } from '@/components/ui/select'
-import { CampaignData } from '@/lib/types'
-import { Search, Filter, Download } from 'lucide-react'
+import { CampaignData } from '@/lib/types' // Ensure this exists (see below)
+import { Search, Filter, Download, ArrowUpDown } from 'lucide-react'
+import { Parser } from 'json2csv' // Run: npm install json2csv
 
 interface DataTableProps {
   data: CampaignData[]
@@ -16,26 +17,73 @@ export function DataTable({ data }: DataTableProps) {
   const [searchTerm, setSearchTerm] = useState('')
   const [statusFilter, setStatusFilter] = useState('all')
   const [currentPage, setCurrentPage] = useState(1)
+  const [sortColumn, setSortColumn] = useState<keyof CampaignData>('name')
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc')
   const itemsPerPage = 5
 
-  const filteredData = data.filter(campaign => {
-    const matchesSearch = campaign.name.toLowerCase().includes(searchTerm.toLowerCase())
-    const matchesStatus = statusFilter === 'all' || campaign.status.toLowerCase() === statusFilter.toLowerCase()
-    return matchesSearch && matchesStatus
-  })
+  const sortedAndFilteredData = useMemo(() => {
+    let filtered = data.filter(campaign => {
+      const matchesSearch = campaign.name.toLowerCase().includes(searchTerm.toLowerCase())
+      const matchesStatus = statusFilter === 'all' || campaign.status.toLowerCase() === statusFilter.toLowerCase()
+      return matchesSearch && matchesStatus
+    })
 
-  const totalPages = Math.ceil(filteredData.length / itemsPerPage)
-  const paginatedData = filteredData.slice(
+    filtered.sort((a, b) => {
+      if (a[sortColumn] < b[sortColumn]) return sortDirection === 'asc' ? -1 : 1
+      if (a[sortColumn] > b[sortColumn]) return sortDirection === 'asc' ? 1 : -1
+      return 0
+    })
+
+    return filtered
+  }, [data, searchTerm, statusFilter, sortColumn, sortDirection])
+
+  const totalPages = Math.ceil(sortedAndFilteredData.length / itemsPerPage)
+  const paginatedData = sortedAndFilteredData.slice(
     (currentPage - 1) * itemsPerPage,
     currentPage * itemsPerPage
   )
 
+  const handleSort = (column: keyof CampaignData) => {
+    if (column === sortColumn) {
+      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc')
+    } else {
+      setSortColumn(column)
+      setSortDirection('asc')
+    }
+  }
+
+  const handleExport = () => {
+    const fields = ['id', 'name', 'status', 'budget', 'spent', 'impressions', 'clicks', 'conversions', 'ctr', 'cpc', 'date']
+    const parser = new Parser({ fields })
+    const csv = parser.parse(data)
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = 'campaigns.csv'
+    link.click()
+    URL.revokeObjectURL(url)
+  }
+
+  if (data.length === 0) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>Campaign Performance</CardTitle>
+        </CardHeader>
+        <CardContent className="text-center py-12">
+          <p className="text-muted-foreground text-lg">No campaigns found. Start by creating one!</p>
+        </CardContent>
+      </Card>
+    )
+  }
+
   return (
-    <Card>
+    <Card aria-labelledby="data-table-title">
       <CardHeader>
         <div className="flex items-center justify-between">
-          <CardTitle>Campaign Performance</CardTitle>
-          <Button variant="outline" size="sm">
+          <CardTitle id="data-table-title">Campaign Performance</CardTitle>
+          <Button variant="outline" size="sm" onClick={handleExport} aria-label="Export to CSV">
             <Download className="w-4 h-4 mr-2" />
             Export CSV
           </Button>
@@ -49,10 +97,11 @@ export function DataTable({ data }: DataTableProps) {
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="pl-10"
+              aria-label="Search campaigns"
             />
           </div>
           
-          <Select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
+          <Select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} aria-label="Filter by status">
             <option value="all">All Status</option>
             <option value="active">Active</option>
             <option value="paused">Paused</option>
@@ -63,17 +112,33 @@ export function DataTable({ data }: DataTableProps) {
       
       <CardContent>
         <div className="overflow-x-auto">
-          <table className="w-full">
+          <table className="w-full" aria-label="Campaign performance table">
             <thead>
               <tr className="border-b">
-                <th className="text-left p-4 font-medium text-muted-foreground">Campaign</th>
-                <th className="text-left p-4 font-medium text-muted-foreground">Status</th>
-                <th className="text-right p-4 font-medium text-muted-foreground">Budget</th>
-                <th className="text-right p-4 font-medium text-muted-foreground">Spent</th>
-                <th className="text-right p-4 font-medium text-muted-foreground">Clicks</th>
-                <th className="text-right p-4 font-medium text-muted-foreground">Conversions</th>
-                <th className="text-right p-4 font-medium text-muted-foreground">CTR</th>
-                <th className="text-right p-4 font-medium text-muted-foreground">CPC</th>
+                <th className="text-left p-4 font-medium text-muted-foreground cursor-pointer" onClick={() => handleSort('name')}>
+                  Campaign <ArrowUpDown className="inline w-4 h-4 ml-1" />
+                </th>
+                <th className="text-left p-4 font-medium text-muted-foreground cursor-pointer" onClick={() => handleSort('status')}>
+                  Status <ArrowUpDown className="inline w-4 h-4 ml-1" />
+                </th>
+                <th className="text-right p-4 font-medium text-muted-foreground cursor-pointer" onClick={() => handleSort('budget')}>
+                  Budget <ArrowUpDown className="inline w-4 h-4 ml-1" />
+                </th>
+                <th className="text-right p-4 font-medium text-muted-foreground cursor-pointer" onClick={() => handleSort('spent')}>
+                  Spent <ArrowUpDown className="inline w-4 h-4 ml-1" />
+                </th>
+                <th className="text-right p-4 font-medium text-muted-foreground cursor-pointer" onClick={() => handleSort('clicks')}>
+                  Clicks <ArrowUpDown className="inline w-4 h-4 ml-1" />
+                </th>
+                <th className="text-right p-4 font-medium text-muted-foreground cursor-pointer" onClick={() => handleSort('conversions')}>
+                  Conversions <ArrowUpDown className="inline w-4 h-4 ml-1" />
+                </th>
+                <th className="text-right p-4 font-medium text-muted-foreground cursor-pointer" onClick={() => handleSort('ctr')}>
+                  CTR <ArrowUpDown className="inline w-4 h-4 ml-1" />
+                </th>
+                <th className="text-right p-4 font-medium text-muted-foreground cursor-pointer" onClick={() => handleSort('cpc')}>
+                  CPC <ArrowUpDown className="inline w-4 h-4 ml-1" />
+                </th>
               </tr>
             </thead>
             <tbody>
@@ -111,7 +176,7 @@ export function DataTable({ data }: DataTableProps) {
         {totalPages > 1 && (
           <div className="flex items-center justify-between mt-4">
             <div className="text-sm text-muted-foreground">
-              Showing {((currentPage - 1) * itemsPerPage) + 1} to {Math.min(currentPage * itemsPerPage, filteredData.length)} of {filteredData.length} results
+              Showing {((currentPage - 1) * itemsPerPage) + 1} to {Math.min(currentPage * itemsPerPage, sortedAndFilteredData.length)} of {sortedAndFilteredData.length} results
             </div>
             <div className="flex items-center space-x-2">
               <Button
@@ -119,6 +184,7 @@ export function DataTable({ data }: DataTableProps) {
                 size="sm"
                 onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
                 disabled={currentPage === 1}
+                aria-label="Previous page"
               >
                 Previous
               </Button>
@@ -130,6 +196,7 @@ export function DataTable({ data }: DataTableProps) {
                 size="sm"
                 onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
                 disabled={currentPage === totalPages}
+                aria-label="Next page"
               >
                 Next
               </Button>
