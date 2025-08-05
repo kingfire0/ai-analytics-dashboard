@@ -22,7 +22,7 @@ export function DataTable({ data }: DataTableProps) {
   const itemsPerPage = 5
 
   const sortedAndFilteredData = useMemo(() => {
-    let filtered = data.filter(campaign => {
+    let const filtered = data.filter(campaign => {
       const matchesSearch = campaign.name.toLowerCase().includes(searchTerm.toLowerCase())
       const matchesStatus = statusFilter === 'all' || campaign.status.toLowerCase() === statusFilter.toLowerCase()
       return matchesSearch && matchesStatus
