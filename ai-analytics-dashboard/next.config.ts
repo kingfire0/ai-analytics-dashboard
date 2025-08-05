@@ -1,18 +1,15 @@
 /**
  * next.config.js
- * Disables ESLint checks during production builds to fix Vercel errors.
- * Add other config options as needed.
+ * Ignores ESLint during builds to allow deployment.
+ * You can remove this once all lint issues are fixed.
  */
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   eslint: {
-    // Ignore ESLint errors during builds (warnings won't fail deployment)
-    ignoreDuringBuilds: true,
+    ignoreDuringBuilds: true,  // This skips ESLint checks
   },
-  // Add other options here, e.g.:
-  // images: { domains: ['example.com'] },
-  // reactStrictMode: true,
+  // Add other config if needed (e.g., images, etc.)
 }
 
 module.exports = nextConfig
